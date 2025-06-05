@@ -1,0 +1,10 @@
+{
+  "name": "billbook",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "concurrently \"nodemon backend/server.js\" \"npm run dev --prefix frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.0.0"
+  }
+}
