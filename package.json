@@ -2,7 +2,7 @@
   "name": "billbook",
   "version": "1.0.0",
   "scripts": {
-    "dev": "concurrently  \"npm run dev --prefix frontend\" \"node backend/server.js\""
+    "dev": "concurrently  \"npm run dev --prefix Frontend\" \"node Backend/server.js\""
   },
   "devDependencies": {
     "concurrently": "^8.0.0"
