@@ -3,7 +3,7 @@ import express from "express";
 import userRoute from "./userRoute.js";
 import fileRoute from "./fileRoute.js";
 import companyRoute from "./CompanyRoute.js";
-import customerRoute from "./CustomerRoute.js";
+import customerRoute from "./customerRoute.js";
 import productRoute from "./ProductRoute.js";
 import invoiceRoute from "./invoiceRoute.js";
 
