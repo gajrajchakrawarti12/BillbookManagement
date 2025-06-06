@@ -8,12 +8,11 @@
   "main": "postcss.config.js",
   "scripts": {
     "start": "react-scripts start",
-    "dev": "react-scripts start",
+    "dev": "PORT=3000 react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
-  "proxy": "http://localhost:10000",
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "^1.2.2",
