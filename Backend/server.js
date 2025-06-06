@@ -10,8 +10,6 @@ import authRouter from './routes/authRoute.js';
 import apiRouter from './routes/apiRoute.js';
 import verifyAccessToken from './middleware/authentication.js';
 import cookieParser from 'cookie-parser';
-import dotenv from 'dotenv';
-dotenv.config();
 
 const app = express();
 
@@ -23,6 +21,8 @@ app.use(cors({
   origin: process.env.CLIENT_URL ?? "http://localhost:3000",
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true,
+  optionsSuccessStatus: 204,
+  maxAge: 86400, // cache preflight response for 1 day
 }));
 app.use(express.json());
 app.use(rateLimit({
@@ -34,22 +34,36 @@ app.use(rateLimit({
 app.use('/api/auth', authRouter);
 app.use('/api', verifyAccessToken, apiRouter);
 
+// Optional base route
+app.get('/', (req, res) => {
+  res.send('🚀 Backend API is running.');
+});
+
+// Health check route
 app.get('/health', (req, res) => {
+  const connectionState = mongoose.connection.readyState;
+  const statusMap = {
+    0: 'Disconnected',
+    1: 'Connected',
+    2: 'Connecting',
+    3: 'Disconnecting',
+  };
+
   res.status(200).json({
     status: 'OK',
-    dbStatus: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected',
+    dbStatus: statusMap[connectionState] || 'Unknown',
   });
 });
 
-// 404
+// 404 handler
 app.use((req, res) => {
   res.status(404).json({
     error: 'Not Found',
-    message: `Route ${req.originalUrl} does not exist`
+    message: `Route ${req.originalUrl} does not exist`,
   });
 });
 
-// Connect DB and Start server
+// Connect DB and start server
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
