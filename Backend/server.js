@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import mongoose from 'mongoose';
+import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -35,8 +36,10 @@ app.use('/api/auth', authRouter);
 app.use('/api', verifyAccessToken, apiRouter);
 
 // Optional base route
-app.get('/', (req, res) => {
-  res.send('🚀 Backend API is running.');
+const __dirname = path.resolve();
+app.use(express.static(path.join(__dirname, 'Frontend/build')));
+app.get('*', (req, res) => {
+  res.sendFile(path.resolve(__dirname, 'Frontend', 'build', 'index.html'));
 });
 
 // Health check route
