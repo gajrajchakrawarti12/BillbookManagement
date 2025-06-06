@@ -7,7 +7,7 @@ import type { AuthContextType } from "../interfaces/AuthContextType";
 import Loader from "../pages/Loader";
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+const API_URL = process.env.REACT_APP_API_URL || "https://billbookmanagement.onrender.com/api";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
