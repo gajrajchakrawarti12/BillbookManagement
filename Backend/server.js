@@ -1,7 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
 import mongoose from 'mongoose';
-import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -19,7 +18,7 @@ app.use(cookieParser());
 app.use(morgan('dev'));
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CLIENT_URL ?? "http://localhost:3000",
+  origin: process.env.CLIENT_URL ?? "https://billbookmanagement.netlify.app",
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true,
   optionsSuccessStatus: 204,
@@ -34,15 +33,6 @@ app.use(rateLimit({
 // API Routes - keep before frontend static serving
 app.use('/api/auth', authRouter);
 app.use('/api', verifyAccessToken, apiRouter);
-
-// Serve React frontend build static files
-const __dirname = path.resolve();
-app.use(express.static(path.join(__dirname, 'Frontend/build')));
-
-// Catch-all route to serve React's index.html only for requests NOT starting with /api
-app.get(/^\/(?!api).*/, (req, res) => {
-  res.sendFile(path.resolve(__dirname, 'Frontend', 'build', 'index.html'));
-});
 
 // Health check route
 app.get('/health', (req, res) => {
