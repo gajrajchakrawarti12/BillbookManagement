@@ -31,14 +31,16 @@ app.use(rateLimit({
   max: 1000,           // limit each IP to 1000 requests per minute
 }));
 
-// Routes
+// API Routes - keep before frontend static serving
 app.use('/api/auth', authRouter);
 app.use('/api', verifyAccessToken, apiRouter);
 
-// Optional base route
+// Serve React frontend build static files
 const __dirname = path.resolve();
 app.use(express.static(path.join(__dirname, 'Frontend/build')));
-app.get('*', (req, res) => {
+
+// Catch-all route to serve React's index.html only for requests NOT starting with /api
+app.get(/^\/(?!api).*/, (req, res) => {
   res.sendFile(path.resolve(__dirname, 'Frontend', 'build', 'index.html'));
 });
 
@@ -58,7 +60,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// 404 handler
+// 404 handler (after all routes)
 app.use((req, res) => {
   res.status(404).json({
     error: 'Not Found',
