@@ -130,7 +130,7 @@ export function NewInvoicePage() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const companyRes = await getCompany(auth.user?._id || "");
+        const companyRes = await getCompany(auth.user?.companyId || "");
         if (!companyRes?.company?._id) {
           navigate("/settings")
           return;
