@@ -49,7 +49,7 @@ export function CustomersPage() {
         setLoading(true);
         if (!auth?.user?._id) throw new Error("User ID is undefined");
 
-        const res = await getCompany(auth.user._id);
+        const res = await getCompany(auth.user?.companyId ?? '');
         if (!res?.company?._id) {
           return;
         }
