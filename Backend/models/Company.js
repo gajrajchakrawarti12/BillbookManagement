@@ -20,7 +20,6 @@ const companySchema = new mongoose.Schema({
   website: { type: String, nullable: true, required: false },
   address: { type: addressSchema},
   image: { type: String, nullable: true, required: false },
-  userId: { type: String, nullable: false, required: true },
   digiImage: {type: String, required: false},
 });
 
