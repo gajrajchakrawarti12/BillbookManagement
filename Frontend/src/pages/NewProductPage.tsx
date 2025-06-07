@@ -77,7 +77,7 @@ export function NewProductPage() {
         ...product,
         companyId: company?._id || "",
       });
-      navigate("/product");
+      navigate("/products");
     } catch (error) {
     } finally {
       setIsLoading(false);
