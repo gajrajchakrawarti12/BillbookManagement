@@ -1,9 +1,9 @@
 import { Company } from "../interfaces/Company";
 import API_URL from "./requests";
 
-export async function getCompany(userId: string) {
+export async function getCompany(id: string) {
   try {
-    const response = await fetch(`${API_URL}/companies/${userId}`, {
+    const response = await fetch(`${API_URL}/companies/${id}`, {
       method: "GET",
       credentials: "include",
     });
