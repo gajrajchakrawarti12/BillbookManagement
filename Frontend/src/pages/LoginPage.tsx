@@ -49,8 +49,6 @@ export function LoginPage() {
       e.preventDefault();
 
       const trimmedUsername = username.trim();
-      console.log(captchaInput.trim(), captcha);
-      
 
       if (captchaInput.trim() !== captcha) {
         setError("Captcha does not match");
