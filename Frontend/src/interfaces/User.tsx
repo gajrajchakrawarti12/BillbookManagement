@@ -10,6 +10,7 @@ interface User {
   image?: string;
   isActive?: boolean;
   isVerified?: boolean;
+  companyId?: string;
 }
 
 export type { User };
