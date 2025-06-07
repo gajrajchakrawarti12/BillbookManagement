@@ -53,7 +53,7 @@ export function NewCustomerPage() {
       if (!auth.user?._id) {
         throw new Error("User ID is undefined");
       }
-      const response = await getCompany(auth.user._id);
+      const response = await getCompany(auth.user.companyId ?? '');
       console.log(response);
       
       if (!response?.company._id) {
