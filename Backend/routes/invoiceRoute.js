@@ -35,9 +35,10 @@ router.get('/:id', async (req, res) => {
 router.get('/id/:id', async (req, res) => {
   try {
     const invoice = await Invoice.findById(req.params.id)
-      .populate('companyId', 'fullName address phone email image')
+      .populate('companyId', 'fullName address phone email image digiImage')
       .populate('customerId', 'fullName address phone email image')
       .populate('items.productId', 'name description')
+      .populate('userId', 'fullName')
 
     if (!invoice) {
       return res.status(404).json({ message: 'Invoice not found' });
