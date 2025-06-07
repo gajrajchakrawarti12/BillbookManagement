@@ -138,6 +138,7 @@ export function NewInvoicePage() {
         setCompany(companyRes.company);
         setInvoice((prev) => ({
           ...prev,
+          userId: (auth.user?._id)?.toString(),
           companyId: (companyRes.company?._id)?.toString(),
         }));
         const customersRes = await getCustomers(companyRes.company?._id);
