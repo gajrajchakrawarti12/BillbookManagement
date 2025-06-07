@@ -53,7 +53,6 @@ export function InvoicesPage() {
         setLoading(true);
         const companyRes = await getCompany(auth?.user?._id ?? "");
         const response = await getInvoices(companyRes.company._id);
-        console.log(response);
         
         if (response && Array.isArray(response)) {
           setInvoices(response);
