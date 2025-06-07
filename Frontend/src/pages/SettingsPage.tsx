@@ -46,61 +46,41 @@ import Loader from "./Loader";
 export function SettingsPage() {
   const auth = useAuth();
   const [edit, setEdit] = useState(false);
-  const [company, setCompany] = useState<Company | null>(null);
+  const [company, setCompany] = useState<Company>({
+    fullName: "",
+    gstin: "",
+    pan: "",
+    phone: "",
+    email: "",
+    website: "",
+    address: {
+      address: "",
+      city: "",
+      state: "",
+      pincode: "",
+      country: "",
+    },
+    image: "",
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [image, setImage] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   useEffect(() => {
     const fetchCompany = async () => {
       try {
-        if (auth?.user?._id) {
-          const response = await getCompany(auth.user._id);
+        if (auth?.user?.companyId) {
+          const response = await getCompany(auth.user.companyId);
           if (response.company) {
             setCompany(response.company);
-          } else {
-            setCompany({
-              userId: auth?.user?._id ?? "",
-              fullName: "",
-              gstin: "",
-              pan: "",
-              phone: "",
-              email: "",
-              website: "",
-              address: {
-                address: "",
-                city: "",
-                state: "",
-                pincode: "",
-                country: "",
-              },
-              image: "",
-            });
           }
         }
       } catch (error) {
         console.error("Failed to fetch company:", error);
-        setCompany({
-          userId: auth?.user?._id ?? "",
-          fullName: "",
-          gstin: "",
-          pan: "",
-          phone: "",
-          email: "",
-          website: "",
-          address: {
-            address: "",
-            city: "",
-            state: "",
-            pincode: "",
-            country: "",
-          },
-          image: "",
-        });
       }
     };
 
     fetchCompany();
-  }, [auth?.user?._id]);
+  }, [auth?.user]);
 
   const handleInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, files } = e.target;
@@ -153,17 +133,21 @@ export function SettingsPage() {
     event.preventDefault();
     console.log(company);
 
-    if (!company?._id) {
+    if (!auth.user?.companyId) {
       try {
         let res;
         if (image) {
           res = await uploadImage(image);
         }
-        await postCompany({
+        const response = await postCompany({
           ...company,
           image: image
             ? `${API_URL}/files/${res?.file?._id?.toString()}`
             : company?.image,
+        });
+        await updateUserData(auth.user?.username ?? "", {
+          ...auth.user,
+          companyId: responce.company?._id,
         });
         window.location.reload();
       } catch (error) {
@@ -186,9 +170,8 @@ export function SettingsPage() {
             res = await uploadImage(image);
           }
         }
-        console.log(res);
 
-        await putCompany(company._id, {
+        await putCompany(auth.user?.companyId ?? "", {
           ...company,
           image: image
             ? `${API_URL}/files/${res?.file?._id?.toString()}`
