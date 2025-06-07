@@ -148,7 +148,7 @@ export function SettingsPage() {
         });
         await updateUserData(auth.user?.username ?? "", {
           ...auth.user,
-          companyId: responce.company?._id,
+          companyId: response.company?._id,
         });
         window.location.reload();
       } catch (error) {
