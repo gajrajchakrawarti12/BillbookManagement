@@ -42,6 +42,7 @@ import {
   putCompany,
 } from "../requests/CompanyRequest";
 import Loader from "./Loader";
+import { updateUserData } from "../requests/UserRequest";
 
 export function SettingsPage() {
   const auth = useAuth();
