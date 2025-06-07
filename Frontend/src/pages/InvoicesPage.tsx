@@ -51,8 +51,7 @@ export function InvoicesPage() {
     const fetchInvoices = async () => {
       try {
         setLoading(true);
-        const companyRes = await getCompany(auth?.user?._id ?? "");
-        const response = await getInvoices(companyRes.company._id);
+        const response = await getInvoices(auth.user?.companyId ?? '');
         
         if (response && Array.isArray(response)) {
           setInvoices(response);
