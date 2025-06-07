@@ -50,11 +50,7 @@ export function ProductsPage() {
         if (!auth.user?._id) {
           navigate("/");
         }
-        const companyres = await getCompany(auth.user?._id ?? "");
-        if (!companyres.company._id) {
-          navigate("/");
-        }
-        const response = await getProducts(companyres.company._id);
+        const response = await getProducts(auth.user?.companyId ?? "");
 
         if (response && Array.isArray(response)) {
           setProducts(response);
