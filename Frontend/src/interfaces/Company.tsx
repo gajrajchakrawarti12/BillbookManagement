@@ -15,6 +15,7 @@ interface Company {
   pan?: string;
   address: Address;
   website?: string;
+  digiImage?: string;
 }
 
 export type { Company };
