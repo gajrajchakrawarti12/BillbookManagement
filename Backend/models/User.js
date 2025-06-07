@@ -42,6 +42,10 @@ const userSchema = new mongoose.Schema(
       enum: ["USER", "ADMIN", "STAFF"],
       default: "USER",
     },
+    companyId: {
+      type: String,
+      required: false,
+    },
   },
   { timestamps: true }
 );
