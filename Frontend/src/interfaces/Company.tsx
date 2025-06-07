@@ -1,7 +1,6 @@
 import { Address } from "./Invoice";
 
 interface Company {
-  userId: string;
   _id?: string;
   createdAt?: string;
   fullName: string;
