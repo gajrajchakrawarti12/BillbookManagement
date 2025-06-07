@@ -21,6 +21,7 @@ const companySchema = new mongoose.Schema({
   address: { type: addressSchema},
   image: { type: String, nullable: true, required: false },
   userId: { type: String, nullable: false, required: true },
+  digiImage: {type: String, required: false},
 });
 
 export default mongoose.model("Company", companySchema);
