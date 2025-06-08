@@ -13,12 +13,24 @@ import cookieParser from 'cookie-parser';
 
 const app = express();
 
+const allowedOrigins = process.env.CLIENT_URL ?? [
+  'https://billbookmanagement.netlify.app',
+  'http://localhost:3000'
+];
+
 // Middleware
 app.use(cookieParser());
 app.use(morgan('dev'));
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CLIENT_URL ?? "https://billbookmanagement.netlify.app",
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true); // Allow server-to-server or tools like Postman
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      return callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true,
   optionsSuccessStatus: 204,
