@@ -90,7 +90,7 @@ export function NewInvoicePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [customer, setCustomer] = useState<Customer>();
   const [invoice, setInvoice] = useState<Invoice>({
-    invoiceNumber: "",
+    invoiceNumber: generateInvoiceNumber(),
     customerId: "",
     dueDate: format(new Date(), "yyyy-MM-dd"),
     companyId: "",
@@ -191,7 +191,7 @@ export function NewInvoicePage() {
       setIsSaving(true);
       const res = await postInvoice(invoice);
       console.log(res);
-      
+
       toast.success("Invoice created successfully");
       navigate("/invoices");
     } catch (error) {
@@ -312,7 +312,7 @@ export function NewInvoicePage() {
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="invoiceNumber">Invoice Number *</Label>
+                <Label htmlFor="invoiceNumber">Invoice Number</Label>
                 <Input
                   id="invoiceNumber"
                   name="invoiceNumber"
@@ -320,6 +320,7 @@ export function NewInvoicePage() {
                   onChange={handleInputChange}
                   placeholder="e.g., INV-001"
                   required
+                  disabled
                 />
               </div>
               <div className="space-y-2">
@@ -750,4 +751,22 @@ export function NewInvoicePage() {
       </Card>
     </div>
   );
+}
+
+
+
+function customNanoId(length = 2) {
+  const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+  let id = '';
+  for (let i = 0; i < length; i++) {
+    const index = Math.floor(Math.random() * alphabet.length);
+    id += alphabet[index];
+  }
+  return id;
+}
+
+function generateInvoiceNumber() {
+  const timestampSuffix = Date.now().toString();
+  const rand = customNanoId();
+  return `INV-${timestampSuffix}${rand}`;
 }
