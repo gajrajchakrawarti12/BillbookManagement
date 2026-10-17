@@ -24,8 +24,12 @@ public class InvoiceService {
 
     @Transactional
     public Map<String, Object> create(long businessId, long user, Request r) {
+        return createInternal(businessId, user, r, false);
+    }
+
+    private Map<String, Object> createInternal(long businessId, long user, Request r, boolean allowCreditNote) {
         tenant.requireBusiness(user, businessId, "OWNER", "ADMIN", "ACCOUNTANT", "STAFF");
-        if ("CREDIT_NOTE".equals(r.documentType()) || r.creditedInvoiceId() != null) {
+        if (!allowCreditNote && ("CREDIT_NOTE".equals(r.documentType()) || r.creditedInvoiceId() != null)) {
             throw new ApiException(HttpStatus.BAD_REQUEST,
                     "Create credit notes through the original invoice's /credit endpoint");
         }
@@ -169,7 +173,7 @@ public class InvoiceService {
         Request normalized = new Request(r.invoiceNumber(), r.documentType(), r.issuerSubjectId(),
                 r.buyerSubjectId(), r.creditedInvoiceId(), r.issueDate(), r.dueDate(), originalCurrency,
                 r.note(), r.reference(), r.issuerNameSnapshot(), r.buyerNameSnapshot(), r.items());
-        return create(businessId, user, normalized);
+        return createInternal(businessId, user, normalized, true);
     }
 
     @Transactional
