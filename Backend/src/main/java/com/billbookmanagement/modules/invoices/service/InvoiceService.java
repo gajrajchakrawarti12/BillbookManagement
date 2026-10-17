@@ -246,11 +246,17 @@ public class InvoiceService {
                 "SELECT h.*,o.code old_status,n.code new_status FROM invoice_status_history h LEFT JOIN invoice_status o ON o.id=h.old_status_id JOIN invoice_status n ON n.id=h.new_status_id WHERE h.invoice_id=? ORDER BY h.changed_at",
                 id));
         BigDecimal allocated = repo.value(
-                "SELECT COALESCE(SUM(pa.allocated_amount),0) FROM payment_allocation pa JOIN payment p ON p.id=pa.payment_id WHERE pa.invoice_id=? AND p.business_id=?",
+                "SELECT COALESCE(SUM(pa.allocated_amount),0) FROM payment_allocation pa " +
+                "JOIN payment p ON p.id=pa.payment_id WHERE pa.invoice_id=? AND p.business_id=?",
                 BigDecimal.class, id, b);
+        BigDecimal credited = repo.value(
+                "SELECT COALESCE(SUM(total_incl_tax),0) FROM invoice " +
+                "WHERE business_id=? AND credited_invoice_id=? AND document_type='CREDIT_NOTE' AND status_id=2",
+                BigDecimal.class, b, id);
         BigDecimal total = (BigDecimal) result.get("total_incl_tax");
         result.put("allocatedAmount", allocated);
-        result.put("outstandingAmount", total.subtract(allocated).max(BigDecimal.ZERO));
+        result.put("creditedAmount", credited);
+        result.put("outstandingAmount", total.subtract(allocated).subtract(credited).max(BigDecimal.ZERO));
         return result;
     }
 
