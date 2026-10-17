@@ -106,23 +106,134 @@ public class InvoiceService {
     }
 
     @Transactional
+    public Map<String, Object> createCredit(long businessId, long originalInvoiceId, long user, Request r) {
+        tenant.requireBusiness(user, businessId, "OWNER", "ADMIN", "ACCOUNTANT");
+        if (!Objects.equals(r.creditedInvoiceId(), originalInvoiceId)
+                || !"CREDIT_NOTE".equals(r.documentType())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Credit note must reference the original invoice");
+        }
+
+        List<Map<String, Object>> originals = repo.list(
+                "SELECT * FROM invoice WHERE id=? AND business_id=? FOR UPDATE",
+                originalInvoiceId, businessId);
+        if (originals.isEmpty()) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "Original invoice not found");
+        }
+        Map<String, Object> original = originals.getFirst();
+        int originalStatus = ((Number) original.get("status_id")).intValue();
+        if (!"INVOICE".equals(original.get("document_type")) || (originalStatus != 2 && originalStatus != 3)) {
+            throw new ApiException(HttpStatus.CONFLICT, "Only issued, non-void invoices can be credited");
+        }
+        if (!Objects.equals(((Number) original.get("buyer_subject_id")).longValue(), r.buyerSubjectId())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Credit note buyer must match the original invoice");
+        }
+
+        String originalCurrency = String.valueOf(original.get("currency"));
+        String creditCurrency = r.currency() == null ? originalCurrency : r.currency();
+        if (!originalCurrency.equals(creditCurrency)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Credit note currency must match the original invoice");
+        }
+
+        BigDecimal requestedCredit = BigDecimal.ZERO;
+        for (Line line : r.items()) {
+            BigDecimal lineGross = line.quantity().multiply(line.unitPrice());
+            if (line.discountAmount().compareTo(lineGross) > 0) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Discount exceeds line amount");
+            }
+            BigDecimal net = lineGross.subtract(line.discountAmount());
+            BigDecimal lineTax = net.multiply(line.taxRate())
+                    .divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
+            requestedCredit = requestedCredit.add(net).add(lineTax);
+        }
+
+        BigDecimal existingCredits = repo.value(
+                "SELECT COALESCE(SUM(i.total_incl_tax),0) FROM invoice i " +
+                "JOIN invoice_status s ON s.id=i.status_id " +
+                "WHERE i.business_id=? AND i.credited_invoice_id=? " +
+                "AND i.document_type='CREDIT_NOTE' AND s.code <> 'VOID'",
+                BigDecimal.class, businessId, originalInvoiceId);
+        BigDecimal originalTotal = (BigDecimal) original.get("total_incl_tax");
+        if (existingCredits.add(requestedCredit).compareTo(originalTotal) > 0) {
+            throw new ApiException(HttpStatus.CONFLICT, "Credit notes cannot exceed the original invoice total");
+        }
+        return create(businessId, user, r);
+    }
+
+    @Transactional
     public Map<String, Object> changeStatus(long b, long id, int status, String action, long user) {
         tenant.requireBusiness(user, b, "OWNER", "ADMIN", "ACCOUNTANT");
-        Map<String, Object> old = invoice(b, id);
+        List<Map<String, Object>> lockedRows = repo.list(
+                "SELECT i.*,s.code AS status_code FROM invoice i " +
+                "JOIN invoice_status s ON s.id=i.status_id WHERE i.id=? AND i.business_id=? FOR UPDATE",
+                id, b);
+        if (lockedRows.isEmpty()) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "Invoice not found");
+        }
+        Map<String, Object> old = new HashMap<>(lockedRows.getFirst());
         int oldStatus = ((Number) old.get("status_id")).intValue();
-        if (oldStatus == 3 || oldStatus == 4 || oldStatus == 5)
-            throw new ApiException(HttpStatus.CONFLICT, "Invoice cannot change from its terminal state");
-        if (status == 2 && oldStatus != 1)
+
+        if (status == 2 && oldStatus != 1) {
             throw new ApiException(HttpStatus.CONFLICT, "Only draft invoices can be issued");
-        if (status == 5 && oldStatus != 1 && oldStatus != 2)
+        }
+        if (status == 5 && oldStatus != 1 && oldStatus != 2) {
             throw new ApiException(HttpStatus.CONFLICT, "Only draft or issued invoices can be voided");
+        }
+        if (status == 5) {
+            long pendingCredits = repo.value(
+                    "SELECT COUNT(*) FROM invoice WHERE business_id=? AND credited_invoice_id=? " +
+                    "AND document_type='CREDIT_NOTE' AND status_id<>5",
+                    Long.class, b, id);
+            if (pendingCredits > 0) {
+                throw new ApiException(HttpStatus.CONFLICT,
+                        "An invoice with active credit notes cannot be voided");
+            }
+        }
+
+        Long originalId = old.get("credited_invoice_id") == null
+                ? null : ((Number) old.get("credited_invoice_id")).longValue();
+        if (status == 2 && "CREDIT_NOTE".equals(old.get("document_type"))) {
+            if (originalId == null) {
+                throw new ApiException(HttpStatus.CONFLICT, "Credit note has no original invoice");
+            }
+            List<Map<String, Object>> originals = repo.list(
+                    "SELECT * FROM invoice WHERE id=? AND business_id=? FOR UPDATE", originalId, b);
+            if (originals.isEmpty()) {
+                throw new ApiException(HttpStatus.CONFLICT, "Original invoice is no longer available");
+            }
+            int originalStatus = ((Number) originals.getFirst().get("status_id")).intValue();
+            if (originalStatus != 2 && originalStatus != 3) {
+                throw new ApiException(HttpStatus.CONFLICT, "Original invoice cannot accept a credit note");
+            }
+        }
+
         repo.update(
-                "UPDATE invoice SET status_id=?,issue_date=COALESCE(issue_date,CURDATE()),issued_at=COALESCE(issued_at,NOW(6)) WHERE id=? AND business_id=?",
+                "UPDATE invoice SET status_id=?,issue_date=COALESCE(issue_date,CURDATE())," +
+                "issued_at=COALESCE(issued_at,NOW(6)) WHERE id=? AND business_id=?",
                 status, id, b);
         repo.update(
                 "INSERT INTO invoice_status_history(invoice_id,old_status_id,new_status_id,changed_by,reason) VALUES(?,?,?,?,?)",
                 id, oldStatus, status, user, action);
         tenant.audit(b, user, action, "INVOICE", id);
+
+        if (status == 2 && originalId != null && "CREDIT_NOTE".equals(old.get("document_type"))) {
+            List<Map<String, Object>> originals = repo.list(
+                    "SELECT total_incl_tax,status_id FROM invoice WHERE id=? AND business_id=?",
+                    originalId, b);
+            Map<String, Object> original = originals.getFirst();
+            BigDecimal originalTotal = (BigDecimal) original.get("total_incl_tax");
+            BigDecimal issuedCredits = repo.value(
+                    "SELECT COALESCE(SUM(total_incl_tax),0) FROM invoice " +
+                    "WHERE business_id=? AND credited_invoice_id=? AND document_type='CREDIT_NOTE' AND status_id=2",
+                    BigDecimal.class, b, originalId);
+            int newOriginalStatus = issuedCredits.compareTo(originalTotal) >= 0 ? 4 : 3;
+            int previousOriginalStatus = ((Number) original.get("status_id")).intValue();
+            repo.update("UPDATE invoice SET status_id=? WHERE id=? AND business_id=?",
+                    newOriginalStatus, originalId, b);
+            repo.update(
+                    "INSERT INTO invoice_status_history(invoice_id,old_status_id,new_status_id,changed_by,reason) VALUES(?,?,?,?,?)",
+                    originalId, previousOriginalStatus, newOriginalStatus, user, "CREDIT_NOTE_ISSUED");
+            tenant.audit(b, user, "CREDIT_NOTE_ISSUED", "INVOICE", originalId);
+        }
         return detail(b, id);
     }
 
