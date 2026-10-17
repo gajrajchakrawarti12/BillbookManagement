@@ -236,6 +236,30 @@ public class InvoiceService {
                     originalId, previousOriginalStatus, newOriginalStatus, user, "CREDIT_NOTE_ISSUED");
             tenant.audit(b, user, "CREDIT_NOTE_ISSUED", "INVOICE", originalId);
         }
+        if (status == 5 && originalId != null && "CREDIT_NOTE".equals(old.get("document_type"))) {
+            List<Map<String, Object>> originals = repo.list(
+                    "SELECT total_incl_tax,status_id FROM invoice WHERE id=? AND business_id=?",
+                    originalId, b);
+            if (!originals.isEmpty()) {
+                Map<String, Object> original = originals.getFirst();
+                BigDecimal originalTotal = (BigDecimal) original.get("total_incl_tax");
+                BigDecimal issuedCredits = repo.value(
+                        "SELECT COALESCE(SUM(total_incl_tax),0) FROM invoice " +
+                        "WHERE business_id=? AND credited_invoice_id=? AND document_type='CREDIT_NOTE' AND status_id=2",
+                        BigDecimal.class, b, originalId);
+                int recalculatedStatus = issuedCredits.signum() == 0 ? 2
+                        : (issuedCredits.compareTo(originalTotal) >= 0 ? 4 : 3);
+                int previousOriginalStatus = ((Number) original.get("status_id")).intValue();
+                if (previousOriginalStatus != recalculatedStatus) {
+                    repo.update("UPDATE invoice SET status_id=? WHERE id=? AND business_id=?",
+                            recalculatedStatus, originalId, b);
+                    repo.update(
+                            "INSERT INTO invoice_status_history(invoice_id,old_status_id,new_status_id,changed_by,reason) VALUES(?,?,?,?,?)",
+                            originalId, previousOriginalStatus, recalculatedStatus, user, "CREDIT_NOTE_VOIDED");
+                    tenant.audit(b, user, "CREDIT_NOTE_VOIDED", "INVOICE", originalId);
+                }
+            }
+        }
         return detail(b, id);
     }
 
