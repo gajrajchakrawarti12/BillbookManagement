@@ -45,6 +45,7 @@ export function NewProductPage() {
     stockQty: "",
     lowStockAlert: "",
     description: "",
+    defaultTaxRate: "",
   });
 
   useEffect(() => {
@@ -73,9 +74,14 @@ export function NewProductPage() {
     setIsLoading(true);
     e.preventDefault();
     try {
-      await postProduct({
-        ...product,
-        companyId: company?._id || "",
+      await postProduct(auth.user?.companyId ?? "", {
+        productCode: product.sku,
+        name: product.name,
+        description: product.description,
+        unitOfMeasure: product.unit,
+        currentUnitPrice: Number(product.sellingPrice ?? 0),
+        defaultTaxRate: Number(product.defaultTaxRate || 0),
+        active: true,
       });
       navigate("/products");
     } catch (error) {
@@ -153,44 +159,29 @@ export function NewProductPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="unit">Unit *</Label>
-                  <Select
-                    onValueChange={(value) =>
-                      setProduct((prev) => ({ ...prev, unit: value }))
-                    }
+                  <Input
+                    id="unit"
+                    name="unit"
+                    value={product.unit}
+                    onChange={handleInputChange}
+                    placeholder="Enter unit of measure"
                     required
-                  >
-                    <SelectTrigger id="unit">
-                      <SelectValue placeholder="Select unit" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pcs">Pieces (Pcs)</SelectItem>
-                      <SelectItem value="kg">Kilograms (Kg)</SelectItem>
-                      <SelectItem value="g">Grams (g)</SelectItem>
-                      <SelectItem value="l">Liters (L)</SelectItem>
-                      <SelectItem value="m">Meters (m)</SelectItem>
-                      <SelectItem value="service">Service</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="taxGroup">Tax Group </Label>
-                  <Select
-                    onValueChange={(value) =>
-                      setProduct((prev) => ({ ...prev, taxGroup: value }))
-                    }
-                  >
-                    <SelectTrigger id="taxGroup">
-                      <SelectValue placeholder="Select tax group" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="gst5">GST 5%</SelectItem>
-                      <SelectItem value="gst12">GST 12%</SelectItem>
-                      <SelectItem value="gst18">GST 18%</SelectItem>
-                      <SelectItem value="gst28">GST 28%</SelectItem>
-                      <SelectItem value="exempt">GST Exempt</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="defaultTaxRate">Tax rate (%)</Label>
+                  <Input
+                    id="defaultTaxRate"
+                    name="defaultTaxRate"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={product.defaultTaxRate}
+                    onChange={handleInputChange}
+                    placeholder="Enter tax rate"
+                  />
                 </div>
               </div>
 

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import {
@@ -27,7 +26,6 @@ import {
   Calendar,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import API_URL from "../requests/requests";
 import type { Invoice } from "../interfaces/Invoice";
 import {
   Select,
@@ -36,8 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/Select";
-import { getInvoices } from "../requests/InvoiceRequest";
-import { getCompany } from "../requests/CompanyRequest";
+import { getInvoices, voidInvoice } from "../requests/InvoiceRequest";
 import { useAuth } from "../contexts/AuthContext";
 
 export function InvoicesPage() {
@@ -79,10 +76,12 @@ export function InvoicesPage() {
   const handleDeleteInvoice = async (id: string) => {
     if (window.confirm("Are you sure you want to delete this invoice?")) {
       try {
-        await axios.delete(`${API_URL}/invoices/${id}`, {
-          withCredentials: true,
-        });
-        setInvoices((prev) => prev.filter((invoice) => invoice._id !== id));
+        await voidInvoice(auth.user?.companyId ?? "", id);
+        setInvoices((prev) =>
+          prev.map((invoice) =>
+            invoice._id === id ? { ...invoice, status: "VOID" } : invoice,
+          ),
+        );
       } catch (error) {
         console.error("Failed to delete invoice:", error);
       }
@@ -93,24 +92,28 @@ export function InvoicesPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "draft":
+      case "DRAFT":
         return (
           <Badge variant="outline" className="bg-gray-100 text-gray-800">
             Draft
           </Badge>
         );
       case "sent":
+      case "ISSUED":
         return (
           <Badge variant="outline" className="bg-blue-100 text-blue-800">
             Sent
           </Badge>
         );
       case "paid":
+      case "CREDITED":
         return (
           <Badge variant="outline" className="bg-green-100 text-green-800">
             Paid
           </Badge>
         );
       case "partial":
+      case "PARTIALLY_CREDITED":
         return (
           <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
             Partial
@@ -123,6 +126,7 @@ export function InvoicesPage() {
           </Badge>
         );
       case "cancelled":
+      case "VOID":
         return (
           <Badge variant="outline" className="bg-gray-100 text-gray-800">
             Cancelled
@@ -219,11 +223,13 @@ export function InvoicesPage() {
                           {invoice.invoiceNumber}
                         </Link>
                       </TableCell>
-                      <TableCell>{invoice.customerId}</TableCell>
+                      <TableCell>{invoice.buyerNameSnapshot || invoice.customerId || "—"}</TableCell>
                       <TableCell>
                         <div className="flex items-center">
                           <Calendar className="mr-2 h-4 w-4 text-gray-400" />
-                          {new Date(invoice.createdAt || "").toLocaleDateString()}
+                          {invoice.issueDate
+                            ? new Date(invoice.issueDate).toLocaleDateString()
+                            : "—"}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -237,7 +243,7 @@ export function InvoicesPage() {
                         )}
                       </TableCell>
                       <TableCell className="font-medium">
-                        ₹{invoice.total.toLocaleString()}
+                        ₹{(invoice.total ?? invoice.totalInclTax ?? 0).toLocaleString()}
                       </TableCell>
                       <TableCell>{getStatusBadge(invoice.status)}</TableCell>
                       <TableCell className="text-right">

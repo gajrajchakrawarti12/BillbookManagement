@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import {
@@ -19,7 +18,6 @@ import {
 } from "../components/ui/Card";
 import { Edit, Trash2, Plus, Search, Mail, Phone } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import API_URL from "../requests/requests";
 import type { Customer } from "../interfaces/Customer";
 import {
   Select,
@@ -99,7 +97,7 @@ export function CustomersPage() {
     if (!window.confirm("Are you sure you want to delete this customer?"))
       return;
     try {
-      await deleteCustomer(id);
+      await deleteCustomer(auth.user?.companyId ?? "", id);
       setCustomers((prev) => prev.filter((c) => c._id !== id));
     } catch (error) {
       console.error("Failed to delete customer:", error);

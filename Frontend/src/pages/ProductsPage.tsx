@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import {
@@ -20,7 +19,6 @@ import {
 import { Badge } from "../components/ui/Badge";
 import { Edit, Trash2, Plus, Search } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import API_URL from "../requests/requests";
 import type { Product } from "../interfaces/Product";
 import {
   Select,
@@ -30,8 +28,7 @@ import {
   SelectValue,
 } from "../components/ui/Select";
 import { number } from "prop-types";
-import { getProducts } from "../requests/productRequset";
-import { getCompany } from "../requests/CompanyRequest";
+import { getProducts, putProduct } from "../requests/productRequset";
 import { useAuth } from "../contexts/AuthContext";
 
 export function ProductsPage() {
@@ -94,10 +91,12 @@ export function ProductsPage() {
   const handleDeleteProduct = async (id: string) => {
     if (window.confirm("Are you sure you want to delete this product?")) {
       try {
-        await axios.delete(`${API_URL}/products/${id}`, {
-          withCredentials: true,
-        });
-        setProducts(products.filter((product) => product._id !== id));
+        await putProduct(auth.user?.companyId ?? "", id, { active: false });
+        setProducts((previous) =>
+          previous.map((product) =>
+            product._id === id ? { ...product, active: false, isActive: false } : product,
+          ),
+        );
       } catch (error) {
         console.error("Failed to delete product:", error);
       }

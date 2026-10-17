@@ -18,7 +18,6 @@ import { Package, Eye, EyeOff } from "lucide-react";
 import Loader from "./Loader";
 
 export function SignupPage() {
-  const [role, setRole] = useState("Admin");
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -27,10 +26,9 @@ export function SignupPage() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [usernameValid, setUsernameValid] = useState(true);
    const [captcha, setCaptcha] = useState("");
   const [captchaInput, setCaptchaInput] = useState("");
-  const { signup, isLoading, user, checkValidUsername } = useAuth();
+  const { signup, isLoading, user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -64,13 +62,13 @@ export function SignupPage() {
         generateCaptcha();
         return;
       }
-    if (!role || !name || !username || !password || !confirmPassword) {
+    if (!name || !username || !password || !confirmPassword) {
       setError("Please fill in all fields");
       return;
     }
 
-    if (!usernameValid) {
-      setError("Username is already taken");
+    if (!username.includes("@")) {
+      setError("Please enter a valid email address");
       return;
     }
 
@@ -79,32 +77,17 @@ export function SignupPage() {
       return;
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters long");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters long");
       return;
     }
 
-    const wasSuccessful = await signup(name, username, password, role);
+    const wasSuccessful = await signup(name, username, password);
     if (wasSuccessful) {
       setSuccess("Account created successfully! Redirecting to login...");
       setTimeout(() => navigate("/login"), 2000);
     } else {
       setError("Failed to create account. Please try again.");
-    }
-  };
-
-  const handleUsernameChange = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const value = e.target.value.trim();
-    setUsername(value);
-
-    try {
-      const isValid = await checkValidUsername(value);
-      setUsernameValid(isValid);
-    } catch (err) {
-      console.error("Username validation error:", err);
-      setUsernameValid(true); // Fallback to true
     }
   };
 
@@ -147,24 +130,8 @@ export function SignupPage() {
             )}
 
             <div className="space-y-2">
-              <label htmlFor="role" className="text-sm font-medium">
-                Role
-              </label>
-              <select
-                id="role"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                disabled={isLoading}
-                className="w-full rounded border border-gray-300 px-3 py-2"
-              >
-                <option value="Admin">Admin</option>
-                <option value="User">Staff</option>
-              </select>
-            </div>
-
-            <div className="space-y-2">
               <label htmlFor="name" className="text-sm font-medium">
-                Full Name
+                Display name
               </label>
               <Input
                 id="name"
@@ -178,21 +145,16 @@ export function SignupPage() {
 
             <div className="space-y-2">
               <label htmlFor="username" className="text-sm font-medium">
-                Username
+                Email address
               </label>
               <Input
                 id="username"
-                type="text"
-                placeholder="Enter your username"
+                type="email"
+                placeholder="you@example.com"
                 value={username}
-                onChange={handleUsernameChange}
+                onChange={(e) => setUsername(e.target.value)}
                 disabled={isLoading}
               />
-              {!usernameValid && (
-                <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
-                  Username already exists
-                </div>
-              )}
             </div>
 
             <div className="space-y-2">

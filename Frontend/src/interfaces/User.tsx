@@ -1,16 +1,33 @@
+import type { EntityId, IsoDateTime } from "./Company";
+
+export type MembershipRole = "OWNER" | "ADMIN" | "ACCOUNTANT" | "STAFF" | "VIEWER";
+
+export interface BusinessMembership {
+  businessId: EntityId;
+  userId: EntityId;
+  role: MembershipRole;
+  isActive: boolean;
+  createdAt?: IsoDateTime;
+}
+
 interface User {
-  _id: string;
-  createdAt?: string;
-  fullName: string;
-  username: string;
-  password?: string;
-  role: string;
+  id?: EntityId;
   email?: string;
+  displayName?: string;
+  authProvider?: string;
+  lastLoginAt?: IsoDateTime | null;
+  createdAt?: IsoDateTime;
+  updatedAt?: IsoDateTime;
+  role?: MembershipRole | string;
+  isActive?: boolean;
+  _id?: string;
+  fullName?: string;
+  companyId?: string;
+  username?: string;
   phone?: string;
   image?: string;
-  isActive?: boolean;
-  isVerified?: boolean;
-  companyId?: string;
+  businessId?: EntityId;
+  memberships?: BusinessMembership[];
 }
 
 export type { User };

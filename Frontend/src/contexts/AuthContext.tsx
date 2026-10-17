@@ -1,35 +1,35 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import axios from "axios";
 import type { User } from "../interfaces/User";
 import type { AuthContextType } from "../interfaces/AuthContextType";
 import Loader from "../pages/Loader";
+import { apiRequest } from "../requests/apiClient";
+import { getBusinesses } from "../requests/businessRequest";
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-const API_URL = process.env.REACT_APP_API_URL || "https://billbookmanagement.onrender.com/api";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const loadUser = async () => {
+    const response = await apiRequest<{ user: User }>("/auth/me");
+    const businesses = await getBusinesses();
+    const business = businesses[0];
+    return {
+      ...response.user,
+      businessId: business?.id,
+      companyId: business ? String(business.id) : "",
+      _id: response.user.id == null ? undefined : String(response.user.id),
+      fullName: response.user.displayName,
+    };
+  };
+
   useEffect(() => {
     const checkAuth = async () => {
       setIsLoading(true);
       try {
-        await fetch(`${API_URL}/auth/refresh`, {
-          method: "POST",
-          credentials: "include", // <-- Correct value here
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({}), // empty body
-        });
-        const res = await axios.get(`${API_URL}/auth/me`, {
-          withCredentials: true,
-        });
-        const userData = res.data.user;
-        setUser({ ...userData });
+        setUser(await loadUser());
       } catch (error) {
         setUser(null);
       } finally {
@@ -46,24 +46,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   ): Promise<boolean> => {
     setIsLoading(true);
     try {
-      const resLogin = await fetch(`${API_URL}/auth/login`, {
+      await apiRequest("/auth/login", {
         method: "POST",
-        body: JSON.stringify({ username, password }),
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        body: JSON.stringify({ email: username, password }),
       });
-
-      if (resLogin.status == 205) {
-        return false
-      }
-
-      const res = await axios.get(`${API_URL}/auth/me`, {
-        withCredentials: true,
-      });
-      const userData = res?.data.user;
-      setUser({ ...userData });
+      setUser(await loadUser());
       return true;
     } catch (error) {
       console.error("Login failed", error);
@@ -77,23 +64,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     name: string,
     username: string,
     password: string,
-    role: string
   ): Promise<boolean> => {
     setIsLoading(true);
     try {
-      await axios.post(
-        `${API_URL}/auth/register`,
-        {
-          username,
+      await apiRequest("/auth/register", {
+        method: "POST",
+        body: JSON.stringify({
+          email: username,
           password,
-          fullName: name,
-          role: role.toUpperCase(),
-        },
-        { withCredentials: true }
-      );
+          displayName: name,
+        }),
+      });
       return true;
     } catch (error: any) {
-      console.log("Signup error:", error);
       console.error(
         "Signup failed:",
         error?.response?.data?.message || error.message || error
@@ -106,7 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await axios.post(`${API_URL}/auth/logout`, {}, { withCredentials: true });
+      await apiRequest("/auth/logout", { method: "POST" });
     } catch (error) {
       console.warn("Logout API failed", error);
     } finally {
@@ -116,16 +99,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkValidUsername = async (username: string) => {
     try {
-      const responce = await fetch(`${API_URL}/auth/username/${username}`, {
-        method: "GET",
-        credentials: "include",
-      });
-      if (responce.status == 205) {
-        return true;
-      }
-      return false;
+      return Boolean(username.trim());
     } catch (error) {
-      console.log(error);
       return false;
     }
   };

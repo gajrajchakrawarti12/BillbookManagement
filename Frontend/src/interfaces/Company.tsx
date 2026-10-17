@@ -1,20 +1,41 @@
-import { Address } from "./Invoice";
+export type EntityId = number | string;
+export type IsoDateTime = string;
+export type CurrencyCode = string;
 
-interface Company {
+export interface Business {
+  id: EntityId;
+  legalName: string;
+  displayName: string | null;
+  businessRegistrationId?: string | null;
+  defaultCurrency: CurrencyCode;
+  isActive: boolean;
+  createdAt: IsoDateTime;
+  updatedAt: IsoDateTime;
+}
+
+export interface DashboardSummary {
+  business: Record<string, unknown>;
+  customers: number;
+  products: number;
+  invoices: number;
+  issuedAmount: number | string;
+  paidInvoices: number;
+  totalRevenue?: number;
+  revenue?: number;
+  pendingInvoices?: number;
+  totalCustomers?: number;
+  totalSubjects?: number;
+  outstandingAmount?: number;
+}
+
+export type Company = Partial<Business> & {
   _id?: string;
-  createdAt?: string;
-  fullName: string;
-  password?: string;
+  fullName?: string;
   email?: string;
   phone?: string;
   image?: string;
-  isActive?: boolean;
-  isVerified?: boolean;
   gstin?: string;
   pan?: string;
-  address: Address;
+  address?: import("./Invoice").Address;
   website?: string;
-  digiImage?: string;
-}
-
-export type { Company };
+};

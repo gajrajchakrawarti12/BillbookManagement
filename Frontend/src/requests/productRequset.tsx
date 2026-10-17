@@ -1,94 +1,75 @@
-import { Product } from "../interfaces/Product";
-import API_URL from "./requests";
+import type { EntityId } from "../interfaces/Company";
+import type { Product, ProductView } from "../interfaces/Product";
+import { apiRequest } from "./apiClient";
 
-export async function getProducts(companyID: string) {
-  try {
-    const response = await fetch(`${API_URL}/product/${companyID}`, {
-      method: "GET",
-      credentials: "include",
-    });
-    if (!response.ok) {
-      throw new Error(`Get failed: ${response.statusText}`);
-    }
-    return response.json();
-  } catch (error) {
-    console.error("Error get product data:", error);
-    throw error;
-  }
+export async function getProducts(businessId: EntityId | undefined) {
+  const products = await apiRequest<Record<string, unknown>[]>(
+    `/businesses/${businessId}/products`,
+  );
+  return products.map(normalizeProduct);
 }
 
-export async function getProduct(ProductId: string) {
-  try {
-    const response = await fetch(`${API_URL}/Product/id/${ProductId}`, {
-      method: "GET",
-      credentials: "include",
-    });
-    if (!response.ok) {
-      return null;
-    }
-    return response.json();
-  } catch (error) {
-    console.error("Error get Product data:", error);
-    return null;
-  }
+export async function getProduct(businessId: EntityId, productId: EntityId) {
+  const product = await apiRequest<Record<string, unknown>>(
+    `/businesses/${businessId}/products/${productId}`,
+  );
+  return normalizeProduct(product);
 }
 
-export async function postProduct(data: Partial<Product>) {
-  try {
-    const response = await fetch(`${API_URL}/Product/`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Post failed: ${response.statusText}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.log("error to post Product:", error);
-    throw error;
-  }
+function normalizeProduct(product: Record<string, unknown>): ProductView {
+  return {
+    businessId: (product.business_id ?? product.businessId) as EntityId,
+    createdAt: String(product.created_at ?? product.createdAt ?? ""),
+    updatedAt: String(product.updated_at ?? product.updatedAt ?? ""),
+    id: (product.id ?? product._id) as EntityId,
+    _id: String(product.id ?? product._id ?? ""),
+    productCode: String(product.product_code ?? product.productCode ?? ""),
+    sku: String(product.product_code ?? product.productCode ?? ""),
+    name: String(product.name ?? ""),
+    description: (product.description as string | null | undefined) ?? null,
+    unitOfMeasure: String(product.unit_of_measure ?? product.unitOfMeasure ?? "unit"),
+    unit: String(product.unit_of_measure ?? product.unitOfMeasure ?? "unit"),
+    currentUnitPrice: Number(product.current_unit_price ?? product.currentUnitPrice ?? 0),
+    sellingPrice: String(product.current_unit_price ?? product.currentUnitPrice ?? 0),
+    defaultTaxRate: Number(product.default_tax_rate ?? product.defaultTaxRate ?? 0),
+    active: Boolean(product.active ?? product.is_active ?? true),
+    isActive: Boolean(product.active ?? product.is_active ?? true),
+  };
 }
 
-export async function putProduct(ProductId: string, data: Partial<Product>) {
-  try {
-    const response = await fetch(`${API_URL}/Product/${ProductId}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Update failed: ${response.statusText}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.log("error to post company:", error);
-    throw error;
-  }
+export async function postProduct(
+  businessId: EntityId,
+  data: Partial<ProductView>,
+) {
+  return apiRequest<Product>(`/businesses/${businessId}/products`, {
+    method: "POST",
+    body: JSON.stringify({
+      productCode: data.productCode ?? data.sku,
+      name: data.name,
+      description: data.description,
+      unitOfMeasure: data.unitOfMeasure ?? data.unit,
+      currentUnitPrice: data.currentUnitPrice ?? Number(data.sellingPrice ?? 0),
+      defaultTaxRate: data.defaultTaxRate ?? 0,
+      active: data.active ?? data.isActive ?? true,
+    }),
+  });
 }
 
-export async function deleteProduct(ProductId: string) {
-  try {
-    const response = await fetch(`${API_URL}/Product/${ProductId}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
-    if (!response.ok) {
-      throw new Error(`Delete failed: ${response.statusText}`);
-    }
-    return await response.json();
-  } catch (error) {
-    console.log("error to post company:", error);
-    throw error;
-  }
+export async function putProduct(
+  businessId: EntityId,
+  productId: EntityId,
+  data: Partial<ProductView>,
+) {
+  return apiRequest<Product>(`/businesses/${businessId}/products/${productId}`, {
+    method: "PUT",
+    body: JSON.stringify({
+      productCode: data.productCode ?? data.sku,
+      name: data.name,
+      description: data.description,
+      unitOfMeasure: data.unitOfMeasure ?? data.unit,
+      currentUnitPrice: data.currentUnitPrice ?? Number(data.sellingPrice ?? 0),
+      defaultTaxRate: data.defaultTaxRate ?? 0,
+      active: data.active ?? data.isActive ?? true,
+    }),
+  });
 }

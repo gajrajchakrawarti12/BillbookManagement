@@ -1,63 +1,33 @@
-import { Company } from "../interfaces/Company";
-import API_URL from "./requests";
+import type { Company } from "../interfaces/Company";
+import type { EntityId } from "../interfaces/Company";
+import { apiRequest } from "./apiClient";
+import { normalizeBusiness } from "./businessRequest";
 
-export async function getCompany(id: string) {
-  try {
-    const response = await fetch(`${API_URL}/companies/${id}`, {
-      method: "GET",
-      credentials: "include",
-    });
-    if (!response.ok) {
-      console.log(`Get comopany failed: ${response.statusText}`);
-      return null;
-    }
-    return await response.json();
-  } catch (error) {
-    console.error("Error updating user data:", error);
-    throw error;
-  }
+function toLegacyCompany(
+  company: Company & Record<string, unknown>,
+): Company & { _id: string; fullName: string } {
+  const normalized = normalizeBusiness(company);
+  return {
+    ...normalized,
+    _id: String(normalized.id ?? ""),
+    fullName: normalized.displayName || normalized.legalName || "",
+  };
+}
+
+export async function getCompany(id: EntityId) {
+  const business = await apiRequest<Record<string, unknown>>(`/businesses/${id}`);
+  return { company: toLegacyCompany(business) };
 }
 
 export async function postCompany(companyData: Partial<Company>) {
-  try {
-    const response = await fetch(`${API_URL}/companies/`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-      body: JSON.stringify(companyData),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Update failed: ${response.statusText}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.log("error to post company:", error);
-    throw error;
-  }
-}
-
-export async function putCompany(companyId: Company["_id"], companyData: Partial<Company>) {
-  try {
-    const response = await fetch(`${API_URL}/companies/${companyId}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-      body: JSON.stringify(companyData),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Update failed: ${response.statusText}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.log("error to post company:", error);
-    throw error;
-  }
+  const business = await apiRequest<Record<string, unknown>>("/businesses", {
+    method: "POST",
+    body: JSON.stringify({
+      legalName: companyData.legalName || companyData.fullName,
+      displayName: companyData.displayName || companyData.fullName,
+      businessRegistrationId: companyData.businessRegistrationId,
+      defaultCurrency: companyData.defaultCurrency || "INR",
+    }),
+  });
+  return { company: toLegacyCompany(business) };
 }

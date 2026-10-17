@@ -1,36 +1,98 @@
-interface Address {
-  address: string;
+import type { EntityId, IsoDateTime, CurrencyCode } from "./Company";
+
+export type InvoiceDocumentType = "INVOICE" | "CREDIT_NOTE";
+export type InvoiceStatus =
+  | "DRAFT"
+  | "ISSUED"
+  | "PARTIALLY_CREDITED"
+  | "CREDITED"
+  | "VOID";
+export type LegacyInvoiceStatus =
+  | "draft"
+  | "sent"
+  | "paid"
+  | "partial"
+  | "overdue"
+  | "cancelled";
+
+export interface Address {
+  addressLine1?: string;
+  addressLine2?: string | null;
+  streetNumber?: string | null;
   city: string;
+  region?: string | null;
+  postalCode?: string | null;
+  countryCode?: string;
+  addressType?: "REGISTERED" | "BILLING" | "SHIPPING" | "OTHER";
+  isDefault?: boolean;
+  validFrom?: string | null;
+  validTo?: string | null;
+
+  /** @deprecated Legacy screen compatibility fields. */
+  address: string;
   state: string;
   country: string;
   pincode: string;
 }
 
-interface InvoiceItem {
+export interface InvoiceItem {
   id: string;
+  invoiceId?: EntityId;
+  lineNumber?: number;
   productId: string;
-  hsn: string;
+  productCodeSnapshot?: string | null;
+  descriptionSnapshot?: string;
+  unitOfMeasureSnapshot?: string;
   quantity: number;
+  unitPrice?: number;
+  discountAmount?: number;
+  netAmount?: number;
+  taxRate: number;
+  taxAmount?: number;
+  grossAmount?: number;
+
+  /** @deprecated Legacy form aliases. */
+  hsn?: string;
   rate: number;
   discount: number;
-  taxRate: number;
   amount: number;
 }
 
-interface Invoice {
-  _id?: string;
-  createdAt?: string;
-  updatedAt?: string;
+export interface Invoice {
+  id?: EntityId;
+  businessId?: EntityId;
   invoiceNumber: string;
-  dueDate?: string;
+  documentType?: InvoiceDocumentType;
+  issuerSubjectId?: EntityId | null;
+  buyerSubjectId?: EntityId | null;
+  creditedInvoiceId?: EntityId | null;
+  status: InvoiceStatus | LegacyInvoiceStatus;
+  issueDate?: string | null;
+  dueDate?: string | null;
+  currency?: CurrencyCode;
+  note?: string | null;
+  reference?: string | null;
+  isPaid?: boolean;
+  isVatReverseCharge?: boolean;
+  issuerNameSnapshot?: string;
+  buyerNameSnapshot?: string;
+  totalExclTax?: number;
+  totalTax?: number;
+  totalInclTax?: number;
+  items: InvoiceItem[];
+  createdBy?: EntityId | null;
+  issuedAt?: IsoDateTime | null;
+  createdAt?: IsoDateTime;
+  updatedAt?: IsoDateTime;
+
+  /** @deprecated Legacy screen compatibility fields. */
+  _id?: string;
   customerId?: string;
   address?: Address;
-  items: InvoiceItem[];
   subTotal: number;
   taxTotal: number;
   discountAmount?: number;
   total: number;
-  status: "draft" | "sent" | "paid" | "partial" | "overdue" | "cancelled";
   notes?: string;
   termsAndConditions?: string;
   paymentMethod?: string;
@@ -41,11 +103,4 @@ interface Invoice {
   userId?: string;
   isGstInvoice?: boolean;
   isExported?: boolean;
-  currency?: string;
 }
-
-export type {
-  Invoice,
-  InvoiceItem,
-  Address
-};

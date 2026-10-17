@@ -29,7 +29,6 @@ import {
 import { Textarea } from "../components/ui/Textarea";
 import { Switch } from "../components/ui/Switch";
 import { format } from "date-fns";
-import axios from "axios";
 import toast from "react-hot-toast";
 import { getCompany } from "../requests/CompanyRequest";
 import { getCustomer, getCustomers } from "../requests/customerRequest";
@@ -47,8 +46,6 @@ import { getProducts } from "../requests/productRequset";
 import { Company } from "../interfaces/Company";
 import Loader from "./Loader";
 import { postInvoice } from "../requests/InvoiceRequest";
-
-const API_URL = "http://localhost:5000/api/invoice";
 
 type InvoiceStatus =
   | "draft"
@@ -147,11 +144,13 @@ export function NewInvoicePage() {
           const selectedCustomer = customersRes.find(
             (c: Customer) => c._id == customerId
           );
-          setCustomer(selectedCustomer);
-          setInvoice((prev) => ({
-            ...prev,
-            customerId: (selectedCustomer._id)?.toString(),
-          }));
+          if (selectedCustomer) {
+            setCustomer(selectedCustomer);
+            setInvoice((prev) => ({
+              ...prev,
+              customerId: selectedCustomer._id?.toString(),
+            }));
+          }
         }
         const productRes = await getProducts(companyRes.company?._id);
         setProducts(productRes);
@@ -187,20 +186,33 @@ export function NewInvoicePage() {
     }
 
     try {
-      console.log(invoice);
       setIsSaving(true);
-      const res = await postInvoice(invoice);
-      console.log(res);
+      await postInvoice(auth.user?.companyId ?? "", {
+        invoiceNumber: invoice.invoiceNumber,
+        documentType: "INVOICE",
+        issuerSubjectId: company?._id,
+        buyerSubjectId: invoice.customerId ?? "",
+        issueDate: new Date().toISOString().slice(0, 10),
+        dueDate: invoice.dueDate ?? undefined,
+        currency: invoice.currency,
+        issuerNameSnapshot: company?.fullName || company?.legalName || "Business",
+        buyerNameSnapshot: customer?.fullName || "Customer",
+        items: invoice.items.map((item) => ({
+          productId: item.productId,
+          description: item.hsn || undefined,
+          quantity: item.quantity,
+          unitOfMeasure: "PCS",
+          unitPrice: item.rate,
+          discountAmount: item.discount,
+          taxRate: item.taxRate,
+        })),
+      });
 
       toast.success("Invoice created successfully");
       navigate("/invoices");
     } catch (error) {
       console.error("Error saving invoice:", error);
-      if (axios.isAxiosError(error)) {
-        toast.error(error.response?.data?.message || "Failed to save invoice");
-      } else {
-        toast.error("An unexpected error occurred");
-      }
+      toast.error(error instanceof Error ? error.message : "Failed to save invoice");
     } finally {
       setIsSaving(false);
     }
@@ -329,7 +341,7 @@ export function NewInvoicePage() {
                   id="dueDate"
                   name="dueDate"
                   type="date"
-                  value={invoice.dueDate}
+                  value={invoice.dueDate ?? ""}
                   onChange={handleInputChange}
                 />
               </div>

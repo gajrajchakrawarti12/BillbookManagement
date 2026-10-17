@@ -14,9 +14,6 @@ export async function uploadImage(data: File | undefined) {
       body: formData,
       credentials: "include", // equivalent to withCredentials: true
     });
-    console.log(response);
-    
-
     if (!response.ok) {
       throw new Error(`Upload failed: ${response.statusText}`);
     }

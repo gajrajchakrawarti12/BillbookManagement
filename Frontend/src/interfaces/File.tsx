@@ -1,8 +1,6 @@
-interface File {
-  _id?: string;
+export interface File {
+  id?: number | string;
   fileType: string;
-  fileSize: Number;
-  fileData: Buffer;
+  fileSize: number;
+  fileData?: string;
 }
-
-export type { File };

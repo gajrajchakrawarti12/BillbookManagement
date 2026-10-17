@@ -38,11 +38,9 @@ import {
 } from "../requests/ImageRequest";
 import {
   getCompany,
-  postCompany,
-  putCompany,
 } from "../requests/CompanyRequest";
+import { createBusiness } from "../requests/businessRequest";
 import Loader from "./Loader";
-import { updateUserData } from "../requests/UserRequest";
 
 export function SettingsPage() {
   const auth = useAuth();
@@ -132,33 +130,25 @@ export function SettingsPage() {
   ): Promise<void> {
     setIsLoading(true);
     event.preventDefault();
-    console.log(company);
 
     if (!auth.user?.companyId) {
       try {
-        let res;
-        if (image) {
-          res = await uploadImage(image);
-        }
-        const response = await postCompany({
-          ...company,
-          image: image
-            ? `${API_URL}/files/${res?.file?._id?.toString()}`
-            : company?.image,
-        });
-        await updateUserData(auth.user?.username ?? "", {
-          ...auth.user,
-          companyId: response.company?._id,
+        await createBusiness({
+          legalName: company.fullName?.trim() || "",
+          displayName: company.fullName?.trim() || undefined,
+          businessRegistrationId: company.gstin?.trim() || undefined,
+          defaultCurrency: "INR",
         });
         window.location.reload();
       } catch (error) {
         console.error("Failed to create company:", error);
+        alert(error instanceof Error ? error.message : "Failed to create business.");
+        setIsLoading(false);
       }
     } else {
       try {
         let res;
         if (image) {
-          console.log("Gajraj", company, company?.image);
           if (company?.image) {
             const imagePath = company?.image;
             const imageName = imagePath
@@ -172,12 +162,13 @@ export function SettingsPage() {
           }
         }
 
-        await putCompany(auth.user?.companyId ?? "", {
-          ...company,
-          image: image
-            ? `${API_URL}/files/${res?.file?._id?.toString()}`
-            : company?.image,
-        });
+        if (image && !company?.image && res?.file?._id) {
+          setCompany((previous) => ({
+            ...previous,
+            image: `${API_URL}/files/${res.file._id.toString()}`,
+          }));
+        }
+        alert("Business details cannot be edited through the current API.");
         window.location.reload();
       } catch (error) {
         console.error("Failed to update company:", error);
@@ -454,80 +445,14 @@ export function SettingsPage() {
             <CardHeader>
               <CardTitle>Invoice Settings</CardTitle>
               <CardDescription>
-                Configure your invoice preferences.
+                Invoice preferences are not exposed by the current backend API.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="invoicePrefix">Invoice Prefix</Label>
-                  <Input
-                    id="invoicePrefix"
-                    placeholder="e.g., INV-"
-                    defaultValue="INV-"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="invoiceSuffix">Invoice Suffix</Label>
-                  <Input id="invoiceSuffix" placeholder="e.g., -2023" />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="decimalPrecision">Decimal Precision</Label>
-                  <Select defaultValue="2">
-                    <SelectTrigger id="decimalPrecision">
-                      <SelectValue placeholder="Select decimal precision" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0">0</SelectItem>
-                      <SelectItem value="1">1</SelectItem>
-                      <SelectItem value="2">2</SelectItem>
-                      <SelectItem value="3">3</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="roundingType">Rounding Type</Label>
-                  <Select defaultValue="none">
-                    <SelectTrigger id="roundingType">
-                      <SelectValue placeholder="Select rounding type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      <SelectItem value="round">Round</SelectItem>
-                      <SelectItem value="floor">Floor</SelectItem>
-                      <SelectItem value="ceil">Ceiling</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Switch id="showHSN" defaultChecked />
-                  <Label htmlFor="showHSN">Show HSN/SAC code on invoices</Label>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch id="showGSTBreakup" defaultChecked />
-                  <Label htmlFor="showGSTBreakup">
-                    Show GST breakup on invoices
-                  </Label>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch id="autoStockDeduction" defaultChecked />
-                  <Label htmlFor="autoStockDeduction">
-                    Auto deduct stock when invoice is created
-                  </Label>
-                </div>
-              </div>
+            <CardContent>
+              <p className="rounded-xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
+                Configure invoice options through the backend when those endpoints become available.
+              </p>
             </CardContent>
-            <CardFooter>
-              <Button>Save Changes</Button>
-            </CardFooter>
           </Card>
         </TabsContent>
 
@@ -535,102 +460,13 @@ export function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Tax Settings</CardTitle>
-              <CardDescription>Configure tax rates and groups.</CardDescription>
+              <CardDescription>Tax groups are provided by products and invoice lines.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="defaultTaxGroup">Default Tax Group</Label>
-                <Select defaultValue="gst18">
-                  <SelectTrigger id="defaultTaxGroup">
-                    <SelectValue placeholder="Select default tax group" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="gst5">GST 5%</SelectItem>
-                    <SelectItem value="gst12">GST 12%</SelectItem>
-                    <SelectItem value="gst18">GST 18%</SelectItem>
-                    <SelectItem value="gst28">GST 28%</SelectItem>
-                    <SelectItem value="exempt">GST Exempt</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Tax Groups</Label>
-                  <Button variant="outline" size="sm">
-                    Add Tax Group
-                  </Button>
-                </div>
-
-                <div className="rounded-md border">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b text-left text-sm font-medium text-muted-foreground">
-                        <th className="p-2">Name</th>
-                        <th className="p-2">CGST</th>
-                        <th className="p-2">SGST</th>
-                        <th className="p-2">IGST</th>
-                        <th className="p-2">Status</th>
-                        <th className="p-2 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr className="border-b">
-                        <td className="p-2">GST 5%</td>
-                        <td className="p-2">2.5%</td>
-                        <td className="p-2">2.5%</td>
-                        <td className="p-2">5%</td>
-                        <td className="p-2">Active</td>
-                        <td className="p-2 text-right">
-                          <Button variant="ghost" size="sm">
-                            Edit
-                          </Button>
-                        </td>
-                      </tr>
-                      <tr className="border-b">
-                        <td className="p-2">GST 12%</td>
-                        <td className="p-2">6%</td>
-                        <td className="p-2">6%</td>
-                        <td className="p-2">12%</td>
-                        <td className="p-2">Active</td>
-                        <td className="p-2 text-right">
-                          <Button variant="ghost" size="sm">
-                            Edit
-                          </Button>
-                        </td>
-                      </tr>
-                      <tr className="border-b">
-                        <td className="p-2">GST 18%</td>
-                        <td className="p-2">9%</td>
-                        <td className="p-2">9%</td>
-                        <td className="p-2">18%</td>
-                        <td className="p-2">Active</td>
-                        <td className="p-2 text-right">
-                          <Button variant="ghost" size="sm">
-                            Edit
-                          </Button>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="p-2">GST 28%</td>
-                        <td className="p-2">14%</td>
-                        <td className="p-2">14%</td>
-                        <td className="p-2">28%</td>
-                        <td className="p-2">Active</td>
-                        <td className="p-2 text-right">
-                          <Button variant="ghost" size="sm">
-                            Edit
-                          </Button>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+            <CardContent>
+              <p className="rounded-xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
+                No tax-group endpoint is available in the current API contract.
+              </p>
             </CardContent>
-            <CardFooter>
-              <Button>Save Changes</Button>
-            </CardFooter>
           </Card>
         </TabsContent>
 
@@ -642,66 +478,11 @@ export function SettingsPage() {
                 Manage user accounts and permissions.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label>Users</Label>
-                <Button variant="outline" size="sm">
-                  Add User
-                </Button>
-              </div>
-
-              <div className="rounded-md border">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b text-left text-sm font-medium text-muted-foreground">
-                      <th className="p-2">Name</th>
-                      <th className="p-2">Email</th>
-                      <th className="p-2">Role</th>
-                      <th className="p-2">Status</th>
-                      <th className="p-2 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-b">
-                      <td className="p-2">John Doe</td>
-                      <td className="p-2">john@example.com</td>
-                      <td className="p-2">Admin</td>
-                      <td className="p-2">Active</td>
-                      <td className="p-2 text-right">
-                        <Button variant="ghost" size="sm">
-                          Edit
-                        </Button>
-                      </td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="p-2">Jane Smith</td>
-                      <td className="p-2">jane@example.com</td>
-                      <td className="p-2">Staff</td>
-                      <td className="p-2">Active</td>
-                      <td className="p-2 text-right">
-                        <Button variant="ghost" size="sm">
-                          Edit
-                        </Button>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="p-2">Mike Johnson</td>
-                      <td className="p-2">mike@example.com</td>
-                      <td className="p-2">Viewer</td>
-                      <td className="p-2">Inactive</td>
-                      <td className="p-2 text-right">
-                        <Button variant="ghost" size="sm">
-                          Edit
-                        </Button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+            <CardContent>
+              <p className="rounded-xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
+                Membership data can be managed through the business membership API.
+              </p>
             </CardContent>
-            <CardFooter>
-              <Button>Save Changes</Button>
-            </CardFooter>
           </Card>
         </TabsContent>
       </Tabs>

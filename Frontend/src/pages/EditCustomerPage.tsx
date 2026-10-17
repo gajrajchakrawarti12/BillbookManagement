@@ -25,6 +25,7 @@ import {
   getCustomer,
   postCustomer,
   putCustomer,
+  subjectToCustomer,
 } from "../requests/customerRequest";
 import { getCompany } from "../requests/CompanyRequest";
 import { Company } from "../interfaces/Company";
@@ -41,13 +42,12 @@ export function EditCustomerPage() {
   useEffect(() => {
     const fetchCustomer = async () => {
       const id = window.location.href.split("/").pop() || "";
-      const response = await getCustomer(id);
-      console.log(response);
+      const response = await getCustomer(auth.user?.companyId ?? "", id);
       if (!response) {
         alert("Can't Get Customer.");
         navigate("/customer");
       }
-      setCustomer(response);
+      setCustomer(subjectToCustomer(response, auth.user?.companyId ?? ""));
     };
     fetchCustomer();
   }, [window.location.href]);
@@ -135,12 +135,17 @@ export function EditCustomerPage() {
     }
 
     try {
-      if (!customer?._id) {
-        window.location.reload();
+      const currentCustomer = customer;
+      if (!currentCustomer?._id) {
+        throw new Error("Customer ID is missing.");
       }
-      await putCustomer(customer?._id || "", {
-        ...customer,
-        companyId: company?._id || "",
+      await putCustomer(auth.user?.companyId ?? "", currentCustomer._id, {
+        subjectType: "CUSTOMER",
+        name: currentCustomer.fullName,
+        email: currentCustomer.email,
+        phone: currentCustomer.phone,
+        taxId: currentCustomer.gstin,
+        vatId: currentCustomer.pan,
       });
       navigate("/customers");
     } catch (error) {

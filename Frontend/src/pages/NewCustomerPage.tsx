@@ -54,7 +54,6 @@ export function NewCustomerPage() {
         throw new Error("User ID is undefined");
       }
       const response = await getCompany(auth.user.companyId ?? '');
-      console.log(response);
       
       if (!response?.company._id) {
         navigate("/settings");
@@ -133,9 +132,13 @@ export function NewCustomerPage() {
     }
 
     try {
-      await postCustomer({
-        ...customer,
-        companyId: company?._id || "",
+      await postCustomer(auth.user?.companyId ?? "", {
+        subjectType: "CUSTOMER",
+        name: customer.fullName,
+        email: customer.email,
+        phone: customer.phone,
+        taxId: customer.gstin,
+        vatId: customer.pan,
       });
       navigate("/customers");
     } catch (error) {

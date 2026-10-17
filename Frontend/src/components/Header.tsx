@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Bell, Search } from "lucide-react";
+import { Bell, Menu, Search } from "lucide-react";
 import { Button } from "./ui/Button";
 import {
   DropdownMenu,
@@ -15,59 +15,63 @@ import { Avatar, AvatarImage, AvatarFallback } from "./ui/Avatar";
 import { useAuth } from "../contexts/AuthContext";
 import { Badge } from "./ui/Badge";
 
-export function Header() {
+interface HeaderProps {
+  onMenuClick: () => void;
+}
+
+export function Header({ onMenuClick }: HeaderProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const { user, logout } = useAuth();
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-white px-4 md:px-6">
-      <div className="hidden md:block md:w-64"></div>
-      <div className="w-full flex items-center justify-between">
-        <form className="hidden md:block md:flex-1 md:max-w-sm">
+    <header className="sticky top-0 z-30 flex h-[76px] items-center gap-3 border-b border-[#d9e2ec]/80 bg-white/90 px-4 backdrop-blur md:px-8">
+      <Button variant="ghost" size="icon" className="lg:hidden" onClick={onMenuClick} aria-label="Open navigation">
+        <Menu className="h-5 w-5" />
+      </Button>
+      <form className="max-w-md flex-1">
           <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+            <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
             <Input
               type="search"
-              placeholder="Search..."
-              className="w-full pl-8"
+              placeholder="Search anything..."
+              className="h-11 w-full rounded-xl border-[#d9e2ec] bg-[#f4f7fb] pl-9 text-sm focus:bg-white"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-        </form>
-        <div className="flex items-center gap-2 md:ml-auto">
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-5 w-5" />
-            <span className="absolute right-1 top-1 flex h-2 w-2 rounded-full bg-blue-600"></span>
+      </form>
+      <div className="ml-auto flex items-center gap-2">
+          <Button variant="ghost" size="icon" className="relative rounded-xl text-[#627d98] hover:bg-[#edf2f7]">
+            <Bell className="h-[18px] w-[18px]" />
+            <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-emerald-500 ring-2 ring-white"></span>
           </Button>
+          <div className="mx-1 hidden h-8 w-px bg-slate-200 sm:block" />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full">
+              <Button variant="ghost" className="h-10 gap-2 rounded-xl px-1.5 pr-2 hover:bg-slate-100">
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={user?.image} alt="User profile picture" />
                   <AvatarFallback>
-                    {getInitials(user?.fullName ?? "")}
+                    {getInitials(user?.displayName || user?.fullName || user?.email || "")}
                   </AvatarFallback>
                 </Avatar>
+                <span className="hidden max-w-28 truncate text-sm font-medium sm:block">
+                  {user?.displayName || user?.fullName || "Account"}
+                </span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <div className="px-2 py-1.5">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium">{user?.fullName}</p>
+                  <p className="text-sm font-medium">{user?.displayName || user?.fullName || "Account"}</p>
                   <p className="text-xs text-gray-500">{user?.email}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <Badge
                       variant={getRoleBadgeVariant(user?.role || "")}
                       className="text-xs"
                     >
-                      {user?.role}
+                      {user?.role || "Member"}
                     </Badge>
-                    {/* {user?.company && (
-                      <span className="text-xs text-muted-foreground">
-                        {user.company}
-                      </span>
-                    )} */}
                   </div>
                 </div>
               </div>
@@ -87,7 +91,6 @@ export function Header() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      </div>
     </header>
   );
 }

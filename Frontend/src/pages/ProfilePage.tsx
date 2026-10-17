@@ -22,7 +22,7 @@ import { Separator } from "../components/ui/Separator";
 import { Badge } from "../components/ui/Badge";
 import { Camera, Key } from "lucide-react";
 import { useState, useRef } from "react";
-import { useAuth } from "../contexts/AuthContext"; // Mock user data, replace with actual user data fetching logic
+import { useAuth } from "../contexts/AuthContext";
 import type { User } from "../interfaces/User";
 import API_URL from "../requests/requests";
 import { updateImage, uploadImage } from "../requests/ImageRequest";
@@ -77,7 +77,7 @@ export default function ProfilePage() {
           }
         }
 
-        updateUserData(user.username, {
+        updateUserData(user.username || user.email || "", {
           ...user,
           image: image
             ? `${API_URL}/files/${res?.file?._id?.toString()}`
@@ -568,4 +568,3 @@ function getInitials(name: string) {
   if (words.length === 1) return words[0][0].toUpperCase();
   return (words[0][0] + words[1][0]).toUpperCase();
 }
-
