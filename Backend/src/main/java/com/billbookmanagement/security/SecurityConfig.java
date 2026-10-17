@@ -5,7 +5,7 @@ import com.nimbusds.jose.jwk.OctetSequenceKey;
 import javax.crypto.spec.SecretKeySpec;
 import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.*;
+import org.springframework.context.annotation.*;\nimport org.springframework.context.annotation.Primary;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -47,6 +47,21 @@ public class SecurityConfig {
 
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
             JwtValidators.createDefault(), accessTokenValidator));
+        return decoder;
+    }
+
+    @Bean("refreshJwtDecoder")
+    JwtDecoder refreshJwtDecoder(SecretKey key) {
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(key)
+            .macAlgorithm(MacAlgorithm.HS256)
+            .build();
+        OAuth2TokenValidator<Jwt> refreshTokenValidator = jwt ->
+            "refresh".equals(jwt.getClaimAsString("type"))
+                ? OAuth2TokenValidatorResult.success()
+                : OAuth2TokenValidatorResult.failure(
+                    new OAuth2Error("invalid_token", "Refresh token required", null));
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+            JwtValidators.createDefault(), refreshTokenValidator));
         return decoder;
     }
     @Bean
