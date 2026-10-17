@@ -129,8 +129,7 @@ public class InvoiceService {
         }
 
         String originalCurrency = String.valueOf(original.get("currency"));
-        String creditCurrency = r.currency() == null ? originalCurrency : r.currency();
-        if (!originalCurrency.equals(creditCurrency)) {
+        if (r.currency() != null && !originalCurrency.equals(r.currency())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Credit note currency must match the original invoice");
         }
 
@@ -156,7 +155,10 @@ public class InvoiceService {
         if (existingCredits.add(requestedCredit).compareTo(originalTotal) > 0) {
             throw new ApiException(HttpStatus.CONFLICT, "Credit notes cannot exceed the original invoice total");
         }
-        return create(businessId, user, r);
+        Request normalized = new Request(r.invoiceNumber(), r.documentType(), r.issuerSubjectId(),
+                r.buyerSubjectId(), r.creditedInvoiceId(), r.issueDate(), r.dueDate(), originalCurrency,
+                r.note(), r.reference(), r.issuerNameSnapshot(), r.buyerNameSnapshot(), r.items());
+        return create(businessId, user, normalized);
     }
 
     @Transactional
