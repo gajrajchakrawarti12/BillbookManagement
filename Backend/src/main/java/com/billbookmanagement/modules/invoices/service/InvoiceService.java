@@ -25,6 +25,10 @@ public class InvoiceService {
     @Transactional
     public Map<String, Object> create(long businessId, long user, Request r) {
         tenant.requireBusiness(user, businessId, "OWNER", "ADMIN", "ACCOUNTANT", "STAFF");
+        if ("CREDIT_NOTE".equals(r.documentType()) || r.creditedInvoiceId() != null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST,
+                    "Create credit notes through the original invoice's /credit endpoint");
+        }
         if (r.dueDate() != null && r.issueDate() != null && r.dueDate().isBefore(r.issueDate()))
             throw new ApiException(HttpStatus.BAD_REQUEST, "Due date cannot precede issue date");
         subject(businessId, r.buyerSubjectId(), "Buyer");
