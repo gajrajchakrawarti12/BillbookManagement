@@ -18,8 +18,8 @@ public class PaymentController {
     private final TenantService tenant;
     public PaymentController(PaymentService service, TenantService tenant) { this.service = service; this.tenant = tenant; }
     public record Allocation(@NotNull Long invoiceId, @NotNull @Positive BigDecimal amount) {}
-    public record Request(@NotNull LocalDate paymentDate, @NotNull @Positive BigDecimal amount,
-        @Pattern(regexp = "CASH|BANK_TRANSFER|CARD|CHEQUE|UPI|OTHER") String paymentMethod, String currency,
+    public record Request(@NotNull LocalDate paymentDate, @NotNull @Positive @Digits(integer = 15, fraction = 4) BigDecimal amount,
+        @Pattern(regexp = "CASH|BANK_TRANSFER|CARD|CHEQUE|UPI|OTHER") String paymentMethod,\n        @Pattern(regexp = "[A-Z]{3}") String currency,
         String externalReference, String note, List<@Valid Allocation> allocations) {}
     @PostMapping
     ResponseEntity<?> create(@PathVariable Long businessId, @Valid @RequestBody Request r, Authentication a) {

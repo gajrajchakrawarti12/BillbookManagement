@@ -4,7 +4,7 @@ import com.billbookmanagement.modules.auth.entity.AppUser;
 import com.billbookmanagement.modules.auth.repository.AppUserRepository;
 import com.billbookmanagement.shared.service.ApiException;
 import jakarta.servlet.http.*;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Value;\nimport org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -21,19 +21,19 @@ public class AuthService {
     private final AppUserRepository users;
     private final PasswordEncoder passwords;
     private final JwtEncoder encoder;
-    private final JwtDecoder decoder;
+    private final JwtDecoder refreshDecoder;
     private final Duration accessExpiry;
     private final Duration refreshExpiry;
     private final boolean secure;
 
-    public AuthService(AppUserRepository users, PasswordEncoder passwords, JwtEncoder encoder, JwtDecoder decoder,
+    public AuthService(AppUserRepository users, PasswordEncoder passwords, JwtEncoder encoder, @Qualifier("refreshJwtDecoder") JwtDecoder refreshDecoder,
             @Value("${app.jwt.access-expiry}") Duration accessExpiry,
             @Value("${app.jwt.refresh-expiry}") Duration refreshExpiry,
             @Value("${app.cookie-secure}") boolean secure) {
         this.users = users;
         this.passwords = passwords;
         this.encoder = encoder;
-        this.decoder = decoder;
+        this.refreshDecoder = refreshDecoder;
         this.accessExpiry = accessExpiry;
         this.refreshExpiry = refreshExpiry;
         this.secure = secure;
@@ -70,7 +70,7 @@ public class AuthService {
         String value = cookie(request, "refresh_token");
         if (value == null) throw new ApiException(HttpStatus.UNAUTHORIZED, "Missing refresh token");
         try {
-            Jwt jwt = decoder.decode(value);
+            Jwt jwt = refreshDecoder.decode(value);
             if (!"refresh".equals(jwt.getClaimAsString("type"))) throw new JwtException("wrong token");
             AppUser user = users.findByIdAndActiveTrue(Long.valueOf(jwt.getSubject()))
                     .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Invalid refresh user"));

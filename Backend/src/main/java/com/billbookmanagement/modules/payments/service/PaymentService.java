@@ -22,37 +22,88 @@ public class PaymentService {
     @Transactional
     public Map<String, Object> create(long businessId, long user, Request r) {
         tenant.requireBusiness(user, businessId, "OWNER", "ADMIN", "ACCOUNTANT");
-        List<Allocation> allocations = Optional.ofNullable(r.allocations()).orElse(List.of());
-        BigDecimal allocated = allocations.stream().map(Allocation::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (allocated.compareTo(r.amount()) > 0)
+
+        String currency = r.currency() == null ? "INR" : r.currency().trim();
+        if (!currency.matches("[A-Z]{3}")) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Currency must be a three-letter uppercase code");
+        }
+        if (r.amount() == null || r.amount().signum() <= 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Payment amount must be greater than zero");
+        }
+
+        // Merge repeated invoice IDs and process locks in a stable order to reduce deadlocks.
+        Map<Long, BigDecimal> requestedByInvoice = new TreeMap<>();
+        for (Allocation allocation : Optional.ofNullable(r.allocations()).orElse(List.of())) {
+            if (allocation.invoiceId() == null || allocation.amount() == null
+                    || allocation.amount().signum() <= 0) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Each allocation needs an invoice and a positive amount");
+            }
+            requestedByInvoice.merge(allocation.invoiceId(), allocation.amount(), BigDecimal::add);
+        }
+
+        BigDecimal totalAllocated = requestedByInvoice.values().stream()
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (totalAllocated.compareTo(r.amount()) > 0) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Allocations exceed payment amount");
+        }
+
         repo.update(
                 "INSERT INTO payment(business_id,payment_date,amount,currency,payment_method,external_reference,note,created_by) VALUES(?,?,?,?,?,?,?,?)",
-                businessId, r.paymentDate(), r.amount(), r.currency() == null ? "INR" : r.currency(),
+                businessId, r.paymentDate(), r.amount(), currency,
                 r.paymentMethod() == null ? "OTHER" : r.paymentMethod(), r.externalReference(), r.note(), user);
-        long id = repo.value("SELECT LAST_INSERT_ID()", Long.class);
-        for (Allocation a : allocations) {
-            List<Map<String, Object>> invoice = repo.list(
-                    "SELECT total_incl_tax,is_paid FROM invoice WHERE id=? AND business_id=? AND status_id=2",
-                    a.invoiceId(), businessId);
-            if (invoice.isEmpty())
+        long paymentId = repo.value("SELECT LAST_INSERT_ID()", Long.class);
+
+        for (Map.Entry<Long, BigDecimal> allocation : requestedByInvoice.entrySet()) {
+            long invoiceId = allocation.getKey();
+            BigDecimal amount = allocation.getValue();
+
+            // Lock the invoice before checking its balance. Concurrent payment requests for
+            // the same invoice will serialize here instead of both spending the same balance.
+            List<Map<String, Object>> invoices = repo.list(
+                    "SELECT total_incl_tax,currency,status_id,document_type FROM invoice " +
+                    "WHERE id=? AND business_id=? FOR UPDATE",
+                    invoiceId, businessId);
+            if (invoices.isEmpty()) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Invoice does not belong to this business");
+            }
+
+            Map<String, Object> invoice = invoices.getFirst();
+            int invoiceStatus = ((Number) invoice.get("status_id")).intValue();
+            if (!"INVOICE".equals(invoice.get("document_type")) || (invoiceStatus != 2 && invoiceStatus != 3)) {
                 throw new ApiException(HttpStatus.BAD_REQUEST,
-                        "Only issued invoices in this business can receive payments");
-            BigDecimal already = repo.value(
-                    "SELECT COALESCE(SUM(allocated_amount),0) FROM payment_allocation WHERE invoice_id=?",
-                    BigDecimal.class, a.invoiceId());
-            if (already.add(a.amount()).compareTo((BigDecimal) invoice.getFirst().get("total_incl_tax")) > 0)
-                throw new ApiException(HttpStatus.BAD_REQUEST, "Allocation exceeds invoice balance");
-            repo.update("INSERT INTO payment_allocation(payment_id,invoice_id,allocated_amount) VALUES(?,?,?)", id,
-                    a.invoiceId(), a.amount());
-            BigDecimal total = repo.value("SELECT total_incl_tax FROM invoice WHERE id=?", BigDecimal.class,
-                    a.invoiceId());
+                        "Only issued invoices with an outstanding balance can receive payments");
+            }
+            String invoiceCurrency = String.valueOf(invoice.get("currency"));
+            if (!currency.equals(invoiceCurrency)) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Payment and invoice currencies must match");
+            }
+
+            BigDecimal invoiceTotal = (BigDecimal) invoice.get("total_incl_tax");
+            BigDecimal alreadyAllocated = repo.value(
+                    "SELECT COALESCE(SUM(pa.allocated_amount),0) " +
+                    "FROM payment_allocation pa JOIN payment p ON p.id=pa.payment_id " +
+                    "WHERE pa.invoice_id=? AND p.business_id=?",
+                    BigDecimal.class, invoiceId, businessId);
+            BigDecimal issuedCredits = repo.value(
+                    "SELECT COALESCE(SUM(total_incl_tax),0) FROM invoice " +
+                    "WHERE business_id=? AND credited_invoice_id=? AND document_type='CREDIT_NOTE' AND status_id=2",
+                    BigDecimal.class, businessId, invoiceId);
+            BigDecimal outstanding = invoiceTotal.subtract(issuedCredits).subtract(alreadyAllocated).max(BigDecimal.ZERO);
+            if (amount.compareTo(outstanding) > 0) {
+                throw new ApiException(HttpStatus.BAD_REQUEST,
+                        "Allocation exceeds the invoice's outstanding balance");
+            }
+
             repo.update(
-                    "UPDATE invoice SET is_paid=(SELECT COALESCE(SUM(allocated_amount),0)>=? FROM payment_allocation WHERE invoice_id=?) WHERE id=?",
-                    total, a.invoiceId(), a.invoiceId());
+                    "INSERT INTO payment_allocation(payment_id,invoice_id,allocated_amount) VALUES(?,?,?)",
+                    paymentId, invoiceId, amount);
+            BigDecimal newlyAllocated = alreadyAllocated.add(amount);
+            repo.update("UPDATE invoice SET is_paid=? WHERE id=? AND business_id=?",
+                    newlyAllocated.add(issuedCredits).compareTo(invoiceTotal) >= 0, invoiceId, businessId);
         }
-        tenant.audit(businessId, user, "CREATE", "PAYMENT", id);
-        return detail(businessId, id);
+
+        tenant.audit(businessId, user, "CREATE", "PAYMENT", paymentId);
+        return detail(businessId, paymentId);
     }
 
     public List<Map<String, Object>> list(long businessId, long user) {
@@ -66,12 +117,13 @@ public class PaymentService {
     }
 
     private Map<String, Object> detail(long businessId, long id) {
-        List<Map<String, Object>> rows = repo.list("SELECT * FROM payment WHERE id=? AND business_id=?", id,
-                businessId);
-        if (rows.isEmpty())
+        List<Map<String, Object>> rows = repo.list(
+                "SELECT * FROM payment WHERE id=? AND business_id=?", id, businessId);
+        if (rows.isEmpty()) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Payment not found");
+        }
         Map<String, Object> result = new HashMap<>(rows.getFirst());
-        result.put("allocations", repo.list("SELECT * FROM payment_allocation WHERE payment_id=?", id));
+        result.put("allocations", repo.list("SELECT * FROM payment_allocation WHERE payment_id=? ORDER BY invoice_id", id));
         result.put("allocatedAmount", repo.value(
                 "SELECT COALESCE(SUM(allocated_amount),0) FROM payment_allocation WHERE payment_id=?",
                 BigDecimal.class, id));

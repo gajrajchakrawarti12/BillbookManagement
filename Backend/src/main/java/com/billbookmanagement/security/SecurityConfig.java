@@ -5,14 +5,14 @@ import com.nimbusds.jose.jwk.OctetSequenceKey;
 import javax.crypto.spec.SecretKeySpec;
 import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.*;
+import org.springframework.context.annotation.*;\nimport org.springframework.context.annotation.Primary;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;\nimport org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;\nimport org.springframework.security.oauth2.core.OAuth2Error;\nimport org.springframework.security.oauth2.core.OAuth2TokenValidator;\nimport org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.oauth2.jwt.*;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
@@ -34,9 +34,35 @@ public class SecurityConfig {
 
     @Bean
     JwtDecoder jwtDecoder(SecretKey key) {
-        return NimbusJwtDecoder.withSecretKey(key)
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(key)
             .macAlgorithm(MacAlgorithm.HS256)
             .build();
+
+        // Refresh tokens must never be accepted as bearer credentials for protected APIs.
+        OAuth2TokenValidator<Jwt> accessTokenValidator = jwt ->
+            "access".equals(jwt.getClaimAsString("type"))
+                ? OAuth2TokenValidatorResult.success()
+                : OAuth2TokenValidatorResult.failure(
+                    new OAuth2Error("invalid_token", "Access token required", null));
+
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+            JwtValidators.createDefault(), accessTokenValidator));
+        return decoder;
+    }
+
+    @Bean("refreshJwtDecoder")
+    JwtDecoder refreshJwtDecoder(SecretKey key) {
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(key)
+            .macAlgorithm(MacAlgorithm.HS256)
+            .build();
+        OAuth2TokenValidator<Jwt> refreshTokenValidator = jwt ->
+            "refresh".equals(jwt.getClaimAsString("type"))
+                ? OAuth2TokenValidatorResult.success()
+                : OAuth2TokenValidatorResult.failure(
+                    new OAuth2Error("invalid_token", "Refresh token required", null));
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+            JwtValidators.createDefault(), refreshTokenValidator));
+        return decoder;
     }
     @Bean
     JwtEncoder jwtEncoder(SecretKey key) {
