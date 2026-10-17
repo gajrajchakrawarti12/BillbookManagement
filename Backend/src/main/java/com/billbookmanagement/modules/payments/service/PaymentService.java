@@ -60,7 +60,7 @@ public class PaymentService {
             // Lock the invoice before checking its balance. Concurrent payment requests for
             // the same invoice will serialize here instead of both spending the same balance.
             List<Map<String, Object>> invoices = repo.list(
-                    "SELECT total_incl_tax,currency,status_id FROM invoice " +
+                    "SELECT total_incl_tax,currency,status_id,document_type FROM invoice " +
                     "WHERE id=? AND business_id=? FOR UPDATE",
                     invoiceId, businessId);
             if (invoices.isEmpty()) {
@@ -68,8 +68,10 @@ public class PaymentService {
             }
 
             Map<String, Object> invoice = invoices.getFirst();
-            if (((Number) invoice.get("status_id")).intValue() != 2) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "Only issued invoices can receive payments");
+            int invoiceStatus = ((Number) invoice.get("status_id")).intValue();
+            if (!"INVOICE".equals(invoice.get("document_type")) || (invoiceStatus != 2 && invoiceStatus != 3)) {
+                throw new ApiException(HttpStatus.BAD_REQUEST,
+                        "Only issued invoices with an outstanding balance can receive payments");
             }
             String invoiceCurrency = String.valueOf(invoice.get("currency"));
             if (!currency.equals(invoiceCurrency)) {
@@ -82,7 +84,11 @@ public class PaymentService {
                     "FROM payment_allocation pa JOIN payment p ON p.id=pa.payment_id " +
                     "WHERE pa.invoice_id=? AND p.business_id=?",
                     BigDecimal.class, invoiceId, businessId);
-            BigDecimal outstanding = invoiceTotal.subtract(alreadyAllocated);
+            BigDecimal issuedCredits = repo.value(
+                    "SELECT COALESCE(SUM(total_incl_tax),0) FROM invoice " +
+                    "WHERE business_id=? AND credited_invoice_id=? AND document_type='CREDIT_NOTE' AND status_id=2",
+                    BigDecimal.class, businessId, invoiceId);
+            BigDecimal outstanding = invoiceTotal.subtract(issuedCredits).subtract(alreadyAllocated).max(BigDecimal.ZERO);
             if (amount.compareTo(outstanding) > 0) {
                 throw new ApiException(HttpStatus.BAD_REQUEST,
                         "Allocation exceeds the invoice's outstanding balance");
@@ -93,7 +99,7 @@ public class PaymentService {
                     paymentId, invoiceId, amount);
             BigDecimal newlyAllocated = alreadyAllocated.add(amount);
             repo.update("UPDATE invoice SET is_paid=? WHERE id=? AND business_id=?",
-                    newlyAllocated.compareTo(invoiceTotal) >= 0, invoiceId, businessId);
+                    newlyAllocated.add(issuedCredits).compareTo(invoiceTotal) >= 0, invoiceId, businessId);
         }
 
         tenant.audit(businessId, user, "CREATE", "PAYMENT", paymentId);
