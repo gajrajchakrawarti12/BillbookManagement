@@ -124,7 +124,9 @@ public class InvoiceService {
         if (!"INVOICE".equals(original.get("document_type")) || (originalStatus != 2 && originalStatus != 3)) {
             throw new ApiException(HttpStatus.CONFLICT, "Only issued, non-void invoices can be credited");
         }
-        if (!Objects.equals(((Number) original.get("buyer_subject_id")).longValue(), r.buyerSubjectId())) {
+        Object originalBuyerId = original.get("buyer_subject_id");
+        if (originalBuyerId == null
+                || ((Number) originalBuyerId).longValue() != r.buyerSubjectId()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Credit note buyer must match the original invoice");
         }
 
@@ -151,9 +153,14 @@ public class InvoiceService {
                 "WHERE i.business_id=? AND i.credited_invoice_id=? " +
                 "AND i.document_type='CREDIT_NOTE' AND s.code <> 'VOID'",
                 BigDecimal.class, businessId, originalInvoiceId);
+        BigDecimal existingPayments = repo.value(
+                "SELECT COALESCE(SUM(pa.allocated_amount),0) FROM payment_allocation pa " +
+                "JOIN payment p ON p.id=pa.payment_id WHERE pa.invoice_id=? AND p.business_id=?",
+                BigDecimal.class, originalInvoiceId, businessId);
         BigDecimal originalTotal = (BigDecimal) original.get("total_incl_tax");
-        if (existingCredits.add(requestedCredit).compareTo(originalTotal) > 0) {
-            throw new ApiException(HttpStatus.CONFLICT, "Credit notes cannot exceed the original invoice total");
+        if (existingCredits.add(existingPayments).add(requestedCredit).compareTo(originalTotal) > 0) {
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "Credit note plus existing payments cannot exceed the original invoice total");
         }
         Request normalized = new Request(r.invoiceNumber(), r.documentType(), r.issuerSubjectId(),
                 r.buyerSubjectId(), r.creditedInvoiceId(), r.issueDate(), r.dueDate(), originalCurrency,
