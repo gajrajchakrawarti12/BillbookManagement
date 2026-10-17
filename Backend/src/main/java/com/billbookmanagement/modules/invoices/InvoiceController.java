@@ -22,8 +22,8 @@ public class InvoiceController {
         this.tenant = tenant;
     }
 
-    public record Line(Long productId, String description, String unitOfMeasure, @NotNull @Positive BigDecimal quantity,
-            @NotNull @PositiveOrZero BigDecimal unitPrice, @NotNull @PositiveOrZero BigDecimal discountAmount,
+    public record Line(@Positive Long productId, String description, String unitOfMeasure, @NotNull @Positive @Digits(integer = 12, fraction = 4) BigDecimal quantity,
+            @NotNull @PositiveOrZero @Digits(integer = 15, fraction = 4) BigDecimal unitPrice, @NotNull @PositiveOrZero @Digits(integer = 15, fraction = 4) BigDecimal discountAmount,
             @NotNull @DecimalMin("0") @DecimalMax("100") BigDecimal taxRate) {
     }
 
@@ -69,6 +69,7 @@ public class InvoiceController {
         if (!"CREDIT_NOTE".equals(r.documentType()))
             throw new com.billbookmanagement.shared.service.ApiException(HttpStatus.BAD_REQUEST,
                     "Credit documents must use documentType CREDIT_NOTE");
-        return create(businessId, r, a);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(service.createCredit(businessId, id, tenant.userId(a), r));
     }
 }
